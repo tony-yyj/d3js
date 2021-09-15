@@ -34,7 +34,7 @@ export class ChinaComponent implements OnInit, AfterViewInit {
         const width = parseInt(style.getPropertyValue('width'), 10);
         const height = parseInt(style.getPropertyValue('height'), 10);
         this.projection = geo.geoMercator()
-            .scale(550)
+            .scale(1850)
             .center([105, 38])
             .translate([width / 2, height / 2]);
 
@@ -101,13 +101,8 @@ export class ChinaComponent implements OnInit, AfterViewInit {
             .enter()
             .append('g')
             .append('path')
-            .attr('d', d => {
+            .attr('d', this.path)
                 // 泸州的geo数据有点问题，还待排查
-                if (d.properties.name === '泸州市') {
-                    return;
-                }
-                return this.path(d);
-            })
             // @ts-ignore
             .attr('fill', (d, i) => {
                 // return '#' + (Math.floor(Math.random() * 0xFFFFFF)).toString(16);

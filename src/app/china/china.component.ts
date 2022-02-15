@@ -15,6 +15,9 @@ export class ChinaComponent implements OnInit, AfterViewInit {
     svg: any;
     projection: any;
     path: any;
+    provinceObj: { [key: string]: { name: string, center: number[] } } = {};
+    cityObj: { [key: string]: { name: string, center: number[] } } = {};
+    tooltip: any;
 
     constructor() {
     }
@@ -29,18 +32,20 @@ export class ChinaComponent implements OnInit, AfterViewInit {
 
     async init() {
         this.svg = d3.select('#svg');
+        this.tooltip = d3.select('#tooltip');
         console.log(this.svg.node());
         const style = getComputedStyle(this.svg.node());
         const width = parseInt(style.getPropertyValue('width'), 10);
         const height = parseInt(style.getPropertyValue('height'), 10);
         this.projection = geo.geoMercator()
-            .scale(1850)
-            .center([105, 38])
+            .scale(800)
+            .center([116.405285, 39.904989])
             .translate([width / 2, height / 2]);
 
         this.path = geo.geoPath(this.projection);
-        await this.getAllProvince();
         await this.getChinaMap();
+        await this.getAllProvince();
+        this.addPoint();
     }
 
     addText() {
@@ -70,16 +75,19 @@ export class ChinaComponent implements OnInit, AfterViewInit {
     }
 
     addPoint() {
-        this.svg.selectAll('g')
-            .append('circle')
+        const list = Object.keys(this.provinceObj).map(key => this.provinceObj[key].center);
+        this.svg.selectAll('.location')
+            .data(list)
+            .enter()
+            .append('g')
+            .attr('class', 'location')
             .attr('transform', d => {
-                if (!d.properties.center) {
-                    return;
-                }
-                const coor = this.projection(d.properties.center);
+                console.log(d);
+                const coor = this.projection(d);
                 return 'translate(' + coor[0] + ',' + coor[1] + ')';
 
             })
+            .append('circle')
             .attr('r', 2)
             .attr('fill', '#e91e63')
             .attr('class', 'location');
@@ -93,6 +101,15 @@ export class ChinaComponent implements OnInit, AfterViewInit {
         if (!data || !data.features) {
             return;
         }
+        for (const feature of data.features) {
+            if (!feature.properties.name) {
+                continue;
+            }
+            this.cityObj[feature.properties.name] = {
+                name: feature.properties.name,
+                center: feature.properties.centroid,
+            };
+        }
         this.svg.append('g')
             .attr('id', name)
             .selectAll('g')
@@ -102,7 +119,7 @@ export class ChinaComponent implements OnInit, AfterViewInit {
             .append('g')
             .append('path')
             .attr('d', this.path)
-                // 泸州的geo数据有点问题，还待排查
+            // 泸州的geo数据有点问题，还待排查
             // @ts-ignore
             .attr('fill', (d, i) => {
                 // return '#' + (Math.floor(Math.random() * 0xFFFFFF)).toString(16);
@@ -114,13 +131,30 @@ export class ChinaComponent implements OnInit, AfterViewInit {
 
             .attr('id', (d: any, i) => (d.properties || {}).name)
             .attr('stroke', '#ccc')
-            .attr('stroke-width', 1)
-            .on('mouseover', (d, i) => {
+            .attr('stroke-width', 0.5)
+            .on('mouseover', d => {
+                this.tooltip.html('city：' + d.properties.name)
+                    .style('left', d3.event.pageX + 20 + 'px')
+                    .style('top', d3.event.pageY + 20 + 'px')
+                    .style('opacity', 1);
+            })
+            .on('mouseout', d => {
+                this.tooltip.style('opacity', 0)
+                    .html('');
             });
     }
 
     async getChinaMap() {
         const data: any = await this.getJson(this.chinaJsonFile);
+        for (const feature of data.features) {
+            if (!feature.properties.name || !feature.properties.centroid) {
+                continue;
+            }
+            this.provinceObj[feature.properties.name] = {
+                name: feature.properties.name,
+                center: feature.properties.centroid,
+            };
+        }
         this.svg.append('g').attr('id', 'china')
             .selectAll('g')
             // ts-ignore
@@ -144,7 +178,7 @@ export class ChinaComponent implements OnInit, AfterViewInit {
             .attr('fill-rule', 'evenodd')
 
             .attr('stroke', '#fff')
-            .attr('stroke-width', 2)
+            .attr('stroke-width', 1)
             .on('mouseover', (d, i) => {
                 // console.log(d3.select(this).attr('id'));
             });
